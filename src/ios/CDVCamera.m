@@ -140,7 +140,7 @@ static NSString* toBase64(NSData* data) {
 {
     self.hasPendingOperation = YES;
     __weak CDVCamera* weakSelf = self;
-    [self bringToFront];
+    [self gainFocus];
     [self.commandDelegate runInBackground:^{
         CDVPictureOptions* pictureOptions = [CDVPictureOptions createFromTakePictureArguments:command];
         pictureOptions.popoverSupported = [weakSelf popoverSupported];
@@ -183,19 +183,21 @@ static NSString* toBase64(NSData* data) {
     }];
 }
 
-UIWindow* currentKey = nil;
+// The key window (Apple's terminology) is the one displayed, given that all windows are on the same level number
+// Which they are in our app's case.
+UIWindow* currentKeyWindow = nil;
 
-- (void)bringToFront {
-    currentKey = [UIApplication sharedApplication].keyWindow;
+- (void)gainFocus {
+    currentKeyWindow = [UIApplication sharedApplication].keyWindow;
     [self.webView.window makeKeyAndVisible];
 
 }
 
 - (void)loseFocus {
     dispatch_async(dispatch_get_main_queue(), ^{
-        if(currentKey != nil){
-            [currentKey makeKeyAndVisible];
-            currentKey = nil;
+        if(currentKeyWindow != nil){
+            [currentKeyWindow makeKeyAndVisible];
+            currentKeyWindow = nil;
         }
     });
 }
