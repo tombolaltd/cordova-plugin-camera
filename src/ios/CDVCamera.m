@@ -140,7 +140,7 @@ static NSString* toBase64(NSData* data) {
 {
     self.hasPendingOperation = YES;
     __weak CDVCamera* weakSelf = self;
-
+    [self gainFocus];
     [self.commandDelegate runInBackground:^{
         CDVPictureOptions* pictureOptions = [CDVPictureOptions createFromTakePictureArguments:command];
         pictureOptions.popoverSupported = [weakSelf popoverSupported];
@@ -183,18 +183,35 @@ static NSString* toBase64(NSData* data) {
     }];
 }
 
+// The key window (Apple's terminology) is the one displayed, given that all windows are on the same level number
+// Which they are in our app's case.
+UIWindow* currentKeyWindow = nil;
+
+- (void)gainFocus {
+    currentKeyWindow = [UIApplication sharedApplication].keyWindow;
+    [self.webView.window makeKeyAndVisible];
+
+}
+
+- (void)loseFocus {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if(currentKeyWindow != nil){
+            [currentKeyWindow makeKeyAndVisible];
+            currentKeyWindow = nil;
+        }
+    });
+}
+
 - (void)showCameraPicker:(NSString*)callbackId withOptions:(CDVPictureOptions *) pictureOptions
 {
     // Perform UI operations on the main thread
     dispatch_async(dispatch_get_main_queue(), ^{
         CDVCameraPicker* cameraPicker = [CDVCameraPicker createFromPictureOptions:pictureOptions];
         self.pickerController = cameraPicker;
-
-        cameraPicker.delegate = self;
         cameraPicker.callbackId = callbackId;
         // we need to capture this state for memory warnings that dealloc this object
         cameraPicker.webView = self.webView;
-
+        cameraPicker.delegate = self;
         // If a popover is already open, close it; we only want one at a time.
         if (([[self pickerController] pickerPopoverController] != nil) && [[[self pickerController] pickerPopoverController] isPopoverVisible]) {
             [[[self pickerController] pickerPopoverController] dismissPopoverAnimated:YES];
@@ -225,6 +242,7 @@ static NSString* toBase64(NSData* data) {
 
     self.hasPendingOperation = NO;
     self.pickerController = nil;
+    [self loseFocus];
 }
 
 - (void)repositionPopover:(CDVInvokedUrlCommand*)command
@@ -553,6 +571,7 @@ static NSString* toBase64(NSData* data) {
             weakSelf.hasPendingOperation = NO;
             weakSelf.pickerController = nil;
         }
+        [self loseFocus];
     };
 
     if (cameraPicker.pictureOptions.popoverSupported && (cameraPicker.pickerPopoverController != nil)) {
@@ -593,6 +612,7 @@ static NSString* toBase64(NSData* data) {
 
         weakSelf.hasPendingOperation = NO;
         weakSelf.pickerController = nil;
+        [self loseFocus];
     };
 
     [[cameraPicker presentingViewController] dismissViewControllerAnimated:YES completion:invoke];
